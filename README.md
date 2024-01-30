@@ -1,7 +1,5 @@
 # Music Genre Classification
 
-# Test Commit
-
 * *Objective*:
   * Most of the work in developing classification machine learning models has been done using image and text data, with very litte being done on audio data.
 
