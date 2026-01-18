@@ -5,12 +5,13 @@ import os
 import sys
 from pathlib import Path
 import base64
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from music_analyzer.key_detector import SongDetector
+from music_analyzer.song_detector import SongDetector
 
 st.set_page_config(
-    page_title="Music Key Analyzer",
+    page_title="Song Analyzer",
     page_icon="🎵",
     layout="wide"
 )
@@ -194,7 +195,7 @@ def create_audio_player_with_waveform(audio_file_or_path, is_file=True):
     return html_code
 
 # Main App
-st.title("🎵 Music Key Analyzer")
+st.title("🎵 Song Analyzer")
 st.markdown("Upload an audio file or provide a YouTube URL to detect its musical key")
 
 tab1, tab2 = st.tabs(["📁 Upload File", "🎬 YouTube URL"])
@@ -264,7 +265,7 @@ if st.session_state.audio_path and os.path.exists(st.session_state.audio_path):
     components.html(html_code, height=250)
     
     # Analyze button
-    if st.button("🎹 Analyze Key", type="primary", use_container_width=True):
+    if st.button("🎹 Analyze Song", type="primary", use_container_width=True):
         with st.spinner("🎧 Analyzing audio..."):
             try:
                 detector = get_detector()
@@ -272,7 +273,7 @@ if st.session_state.audio_path and os.path.exists(st.session_state.audio_path):
                 tempo, tempo_confidence = detector.detect_tempo(st.session_state.audio_path)
                 time_sig, ts_confidence = detector.detect_time_signature(st.session_state.audio_path)
                 
-                st.success("✅ Analysis complete!")
+                # st.success("✅ Analysis complete!")
                 
                 col1, col2 = st.columns(2)
                 with col1:
@@ -283,6 +284,23 @@ if st.session_state.audio_path and os.path.exists(st.session_state.audio_path):
                     st.metric("Confidence", f"{key_confidence:.1%}")
                     st.metric("Confidence", f"{tempo_confidence:.1%}")
                     st.metric("Confidence", f"{ts_confidence:.1%}")
+                
+                st.subheader("🎸 Detected Chords")
+                chords = detector.detect_chords(st.session_state.audio_path)
+
+                cols = st.columns(4)
+                for idx, (chord, count) in enumerate(chords):
+                    with cols[idx % 4]:
+                        st.metric(f"#{idx+1}", chord, f"{count} occurrences")
+                
+                # In your Streamlit app:
+                with st.expander("📊 View Spectrogram", expanded=False):
+                    with st.spinner("Generating spectrogram..."):
+                        fig = detector.create_spectrogram(st.session_state.audio_path)
+                        st.pyplot(fig)
+                        plt.close(fig)
+                
+                st.success("✅ Analysis complete!")
                 
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")

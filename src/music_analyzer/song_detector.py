@@ -1,4 +1,6 @@
 import librosa
+import librosa.display
+import matplotlib.pyplot as plt
 import numpy as np
 
 class SongDetector:
@@ -164,3 +166,118 @@ class SongDetector:
             confidence = 0.4
         
         return time_sig, confidence
+
+    def create_spectrogram(self, audio_path):
+        """Create an interactive spectrogram visualization."""
+        
+        # Load audio
+        y, sr = librosa.load(audio_path)
+        
+        # Create spectrogram
+        D = librosa.amplitude_to_db(
+            np.abs(librosa.stft(y)), 
+            ref=np.max
+        )
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 4))
+        img = librosa.display.specshow(
+            D, 
+            sr=sr, 
+            x_axis='time', 
+            y_axis='hz',
+            ax=ax,
+            cmap='viridis'
+        )
+        
+        ax.set_title('Spectrogram', fontsize=16)
+        ax.set_xlabel('Time (seconds)')
+        ax.set_ylabel('Frequency (Hz)')
+        
+        # Add colorbar
+        fig.colorbar(img, ax=ax, format='%+2.0f dB')
+        
+        plt.tight_layout()
+        return fig
+
+    def detect_chords(self, audio_path, num_chords=8):
+        """
+        Detect the most prominent chords in the song.
+        
+        Returns:
+            list: List of (chord_name, timestamp, confidence) tuples
+        """
+        import librosa
+        import numpy as np
+        
+        y, sr = librosa.load(audio_path)
+        
+        # Get chromagram
+        chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+        
+        # Define chord templates (major and minor triads)
+        chord_templates = {
+            'C': [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+            'C#': [0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+            'D': [0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+            'D#': [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],
+            'E': [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+            'F': [1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+            'F#': [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            'G': [0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+            'G#': [1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0],
+            'A': [0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+            'A#': [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            'B': [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1],
+            'Cm': [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+            'C#m': [0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+            'Dm': [0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0],
+            'D#m': [0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0],
+            'Em': [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
+            'Fm': [1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+            'F#m': [0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0],
+            'Gm': [0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0],
+            'G#m': [0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1],
+            'Am': [1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0],
+            'A#m': [0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            'Bm': [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+        }
+        
+        # Detect chords for each time frame
+        detected_chords = []
+        
+        for i in range(chroma.shape[1]):
+            frame_chroma = chroma[:, i]
+            
+            # Compare to each chord template
+            best_chord = None
+            best_correlation = -1
+            
+            for chord_name, template in chord_templates.items():
+                correlation = np.corrcoef(frame_chroma, template)[0, 1]
+                
+                if correlation > best_correlation:
+                    best_correlation = correlation
+                    best_chord = chord_name
+            
+            timestamp = librosa.frames_to_time(i, sr=sr)
+            detected_chords.append((best_chord, timestamp, best_correlation))
+        
+        # Group consecutive same chords
+        grouped_chords = []
+        current_chord = None
+        start_time = 0
+        
+        for chord, time, conf in detected_chords:
+            if chord != current_chord:
+                if current_chord is not None:
+                    grouped_chords.append((current_chord, start_time, time, conf))
+                current_chord = chord
+                start_time = time
+        
+        # Return top N most frequent chords
+        from collections import Counter
+        chord_counts = Counter([c[0] for c in grouped_chords])
+        top_chords = chord_counts.most_common(num_chords)
+        
+        return top_chords
